@@ -1,0 +1,329 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Huninn&display=swap');
+
+/* 獅尾圓體 Bold (Swei Gothic Bold) - 作者 max32002，基於思源黑體改造 */
+@font-face {
+  font-family: "SweiGothicCJKtc";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/max32002/swei-gothic@2.142/WebFont/CJK%20TC/SweiGothicCJKtc-Bold.woff2") format("woff2");
+}
+
+@theme {
+  /* 字型 */
+  --font-handwrite: "SweiGothicCJKtc", "Huninn", sans-serif;
+  --font-round: "Huninn", sans-serif;
+  --font-sans: "Huninn", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  
+  /* 色彩 */
+  --color-page-bg: #F8F2E7;
+  --color-main-text: #6B4423;
+  --color-border-soft: rgba(139, 111, 78, 0.2);
+  --color-border-dash: rgba(139, 111, 78, 0.35);
+  --color-salary-bg: rgba(168, 200, 220, 0.22);
+  --color-warning: #BA7517;
+  --color-overspent: #A32D2D;
+  --color-remaining: #3B6D11;
+}
+
+/* ===========================
+   紙張紋理背景
+   =========================== */
+body {
+  background-color: var(--color-page-bg);
+  color: var(--color-main-text);
+  font-family: var(--font-sans);
+  background-image:
+    repeating-linear-gradient(
+      103deg,
+      transparent 0px,
+      transparent 2px,
+      rgba(139, 111, 78, 0.025) 2px,
+      rgba(139, 111, 78, 0.025) 3px
+    ),
+    repeating-linear-gradient(
+      7deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(139, 111, 78, 0.02) 3px,
+      rgba(139, 111, 78, 0.02) 4px
+    ),
+    radial-gradient(
+      circle at 20% 30%,
+      rgba(139, 111, 78, 0.04) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      rgba(139, 111, 78, 0.04) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.3) 0%,
+      transparent 70%
+    );
+  background-size: 100% 100%, 100% 100%, 800px 800px, 600px 600px, 100% 100%;
+  min-height: 100vh;
+}
+
+/* 字型輔助 class */
+.font-handwrite {
+  font-family: var(--font-handwrite);
+  letter-spacing: 0.05em;
+}
+
+.font-round {
+  font-family: var(--font-round);
+}
+
+.serif {
+  font-family: var(--font-handwrite);
+  letter-spacing: 0.03em;
+}
+
+/* ===========================
+   紙膠帶效果
+   =========================== */
+.tape-header {
+  position: relative;
+  clip-path: polygon(
+    2% 15%, 0% 50%, 2% 85%,
+    98% 85%, 100% 50%, 98% 15%
+  );
+  box-shadow: 
+    inset 0 0 20px rgba(255, 255, 255, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.tape-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0px,
+    transparent 4px,
+    rgba(255, 255, 255, 0.08) 4px,
+    rgba(255, 255, 255, 0.08) 5px
+  );
+  pointer-events: none;
+}
+
+/* ===========================
+   標籤貼紙效果
+   =========================== */
+.item-tag {
+  position: relative;
+  padding: 4px 12px;
+  border-radius: 3px;
+  font-family: var(--font-round);
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* ===========================
+   輸入框（手寫橫線風格）
+   =========================== */
+.formula-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed rgba(139, 111, 78, 0.3);
+  border-radius: 0;
+  font-family: var(--font-round);
+  font-size: 14px;
+  padding: 4px 8px 4px 4px;
+  width: 100%;
+  outline: none;
+  color: var(--color-main-text);
+  transition: border-color 0.2s;
+}
+
+.formula-input:focus {
+  border-bottom-color: var(--color-main-text);
+  border-bottom-style: solid;
+}
+
+.formula-input::placeholder {
+  color: rgba(139, 111, 78, 0.35);
+  font-style: italic;
+}
+
+/* 薪水輸入框 */
+.income-input {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1.5px dashed rgba(139, 111, 78, 0.4);
+  border-radius: 6px;
+  font-family: var(--font-round);
+  font-size: 20px;
+  padding: 8px 12px;
+  width: 100%;
+  outline: none;
+  color: var(--color-main-text);
+  transition: all 0.2s;
+}
+
+.income-input:focus {
+  border-color: var(--color-main-text);
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* ===========================
+   卡片樣式
+   =========================== */
+.paper-card {
+  background: #FDFBF5;
+  backdrop-filter: blur(2px);
+  border-radius: 12px;
+  border: 1px solid rgba(139, 111, 78, 0.12);
+  box-shadow:
+    0 1px 2px rgba(139, 111, 78, 0.05),
+    0 2px 8px rgba(139, 111, 78, 0.04);
+}
+
+.sticky-note {
+  background: rgba(255, 255, 255, 0.4);
+  border: 1.5px dashed rgba(139, 111, 78, 0.3);
+  border-radius: 8px;
+}
+
+.income-box {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 10px;
+  padding: 16px 20px;
+  position: relative;
+  box-shadow:
+    0 1px 3px rgba(139, 111, 78, 0.08),
+    0 2px 10px rgba(139, 111, 78, 0.04);
+}
+
+/* ===========================
+   水庫（月薪總額）
+   =========================== */
+.reservoir {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid rgba(139, 111, 78, 0.2);
+  border-radius: 14px;
+  padding: 16px 20px 22px;
+  min-height: 170px;
+  box-shadow:
+    inset 0 2px 6px rgba(139, 111, 78, 0.06),
+    inset 0 -3px 8px rgba(139, 111, 78, 0.05),
+    0 2px 10px rgba(139, 111, 78, 0.05);
+}
+
+/* 水庫側邊刻度記號 */
+.reservoir::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(139, 111, 78, 0.25) 0px,
+    rgba(139, 111, 78, 0.25) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.reservoir-water {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: height 0.7s cubic-bezier(0.25, 0.8, 0.25, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.reservoir-fill {
+  position: absolute;
+  top: 10px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(168, 200, 220, 0.55) 0%,
+    rgba(120, 170, 205, 0.7) 100%
+  );
+}
+
+.reservoir-wave {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 16px;
+  animation: reservoir-wave-slide 6s linear infinite;
+}
+
+.reservoir-wave--back {
+  top: 4px;
+  height: 14px;
+  opacity: 0.55;
+  animation-duration: 9s;
+  animation-direction: reverse;
+}
+
+@keyframes reservoir-wave-slide {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.reservoir-content {
+  position: relative;
+  z-index: 2;
+}
+
+.reservoir-gauge {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  z-index: 2;
+  font-family: var(--font-round);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-main-text);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px dashed rgba(139, 111, 78, 0.3);
+  backdrop-filter: blur(2px);
+}
+
+/* 水滴圖示 */
+.reservoir-drop {
+  display: inline-block;
+  width: 10px;
+  height: 12px;
+  background: linear-gradient(180deg, #8FC3D9 0%, #5E9FBF 100%);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  transform: rotate(-4deg);
+  vertical-align: -2px;
+  margin-right: 4px;
+  box-shadow: inset -1px -1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.shadow-soft {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.big-number {
+  font-family: var(--font-round);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
