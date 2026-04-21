@@ -1,109 +1,138 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Trash2, 
-  Plus, 
-  ChevronDown, 
-  ChevronUp, 
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {
+  Trash2,
+  Plus,
+  ChevronDown,
+  ChevronUp,
   RotateCcw,
   AlertCircle,
+  BookOpen,
+  Save,
+  Image as ImageIcon,
+  Eye,
+  ArrowLeft,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  CategoryKey, 
-  CATEGORIES, 
-  PRESET_ITEMS, 
-  ExpenseItem 
+import {
+  CategoryKey,
+  CATEGORIES,
+  ExpenseItem,
 } from './constants';
 import { safelyEvaluate, formatCurrency } from './utils/math';
 import { BudgetInput } from './components/BudgetInput';
-
-interface MonthData {
-  incomeFormula: string;
-  percentages: Record<CategoryKey, number>;
-  expenses: Record<CategoryKey, ExpenseItem[]>;
-}
-
-const STORAGE_KEY = 'budget_tool_data';
-
-const DEFAULT_PERCENTAGES: Record<CategoryKey, number> = {
-  FIXED: 50,
-  ANNUAL: 30,
-  SELF: 10,
-  DREAM: 10,
-};
-
-const createInitialMonthData = (): MonthData => {
-  const makeItem = (p: { name: string; tooltip?: string; placeholder?: string }): ExpenseItem => ({
-    id: Math.random().toString(36).substr(2, 9),
-    name: p.name,
-    formula: '',
-    isCustom: false,
-    tooltip: p.tooltip,
-    placeholder: p.placeholder,
-  });
-  const expenses: Record<CategoryKey, ExpenseItem[]> = {
-    FIXED: PRESET_ITEMS.FIXED.map(makeItem),
-    ANNUAL: PRESET_ITEMS.ANNUAL.map(makeItem),
-    SELF: PRESET_ITEMS.SELF.map(makeItem),
-    DREAM: PRESET_ITEMS.DREAM.map(makeItem),
-  };
-
-  return {
-    incomeFormula: '',
-    percentages: { ...DEFAULT_PERCENTAGES },
-    expenses,
-  };
-};
+import { RecordsPanel } from './components/RecordsPanel';
+import { SavePlanModal } from './components/SavePlanModal';
+import {
+  MonthData,
+  SavedPlan,
+  StorageData,
+  loadStorage,
+  saveStorage,
+  createInitialMonthData,
+  createSavedPlan,
+  defaultPlanName,
+  formatSavedDate,
+} from './utils/storage';
+import { exportElementToJpg } from './utils/exportImage';
 
 export default function App() {
-  const [allData, setAllData] = useState<Record<string, MonthData>>(() => ({
-    'default': createInitialMonthData()
+  const [storage, setStorage] = useState<StorageData>(() => ({
+    currentDraft: createInitialMonthData(),
+    savedPlans: [],
   }));
-  const currentMonth = 'default';
+  const [viewingPlanId, setViewingPlanId] = useState<string | null>(null);
+  const [recordsOpen, setRecordsOpen] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [isNoteOpen, setIsNoteOpen] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const captureRef = useRef<HTMLDivElement>(null);
 
   // Load from LocalStorage
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Object.keys(parsed).length > 0) {
-          setAllData(parsed);
-        }
-      } catch (e) {
-        console.error('Failed to parse saved data', e);
-      }
-    }
+    setStorage(loadStorage());
   }, []);
 
   // Save to LocalStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
-  }, [allData]);
+    saveStorage(storage);
+  }, [storage]);
 
-  const data = useMemo(() => {
-    return allData[currentMonth] || createInitialMonthData();
-  }, [allData, currentMonth]);
+  const viewingPlan = useMemo<SavedPlan | null>(() => {
+    if (!viewingPlanId) return null;
+    return storage.savedPlans.find((p) => p.id === viewingPlanId) ?? null;
+  }, [viewingPlanId, storage.savedPlans]);
+
+  const isViewing = viewingPlan !== null;
+  const data: MonthData = viewingPlan ? viewingPlan.data : storage.currentDraft;
 
   const updateData = (newData: MonthData) => {
-    setAllData({
-      [currentMonth]: newData
-    });
+    if (isViewing) return;
+    setStorage((prev) => ({ ...prev, currentDraft: newData }));
   };
 
   const handleReset = () => {
-    setAllData({ 'default': createInitialMonthData() });
+    setStorage((prev) => ({ ...prev, currentDraft: createInitialMonthData() }));
+    setViewingPlanId(null);
     setShowResetConfirm(false);
+  };
+
+  const handleSavePlan = (name: string) => {
+    const sourceData = viewingPlan ? viewingPlan.data : storage.currentDraft;
+    const newPlan = createSavedPlan(name, sourceData);
+    setStorage((prev) => ({ ...prev, savedPlans: [...prev.savedPlans, newPlan] }));
+    setSaveModalOpen(false);
+  };
+
+  const handleRenamePlan = (id: string, newName: string) => {
+    setStorage((prev) => ({
+      ...prev,
+      savedPlans: prev.savedPlans.map((p) => (p.id === id ? { ...p, name: newName } : p)),
+    }));
+  };
+
+  const handleDeletePlan = (id: string) => {
+    setStorage((prev) => ({
+      ...prev,
+      savedPlans: prev.savedPlans.filter((p) => p.id !== id),
+    }));
+    if (viewingPlanId === id) setViewingPlanId(null);
+  };
+
+  const handleLoadPlanAsDraft = (id: string) => {
+    const plan = storage.savedPlans.find((p) => p.id === id);
+    if (!plan) return;
+    setStorage((prev) => ({
+      ...prev,
+      currentDraft: JSON.parse(JSON.stringify(plan.data)),
+    }));
+    setViewingPlanId(null);
+    setRecordsOpen(false);
+  };
+
+  const handleExport = async () => {
+    if (!captureRef.current) return;
+    setIsExporting(true);
+    await new Promise((r) => setTimeout(r, 50));
+    try {
+      const nameSlug = viewingPlan ? viewingPlan.name : '預算規劃';
+      const ts = formatSavedDate(Date.now()).replace(/\//g, '-');
+      await exportElementToJpg(captureRef.current, `${nameSlug}_${ts}.jpg`);
+    } catch (e) {
+      console.error('Export failed', e);
+      alert('匯出圖片失敗，請再試一次');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // derived calculations
   const totalIncome = safelyEvaluate(data.incomeFormula) || 0;
-  
+
   const categoryBudgets = useMemo(() => {
     const budgets: Record<CategoryKey, number> = { FIXED: 0, ANNUAL: 0, SELF: 0, DREAM: 0 };
-    (Object.keys(CATEGORIES) as CategoryKey[]).forEach(key => {
+    (Object.keys(CATEGORIES) as CategoryKey[]).forEach((key) => {
       budgets[key] = (totalIncome * data.percentages[key]) / 100;
     });
     return budgets;
@@ -111,7 +140,7 @@ export default function App() {
 
   const categorySpent = useMemo(() => {
     const spent: Record<CategoryKey, number> = { FIXED: 0, ANNUAL: 0, SELF: 0, DREAM: 0 };
-    (Object.keys(CATEGORIES) as CategoryKey[]).forEach(key => {
+    (Object.keys(CATEGORIES) as CategoryKey[]).forEach((key) => {
       spent[key] = data.expenses[key].reduce((sum, item) => sum + (safelyEvaluate(item.formula) || 0), 0);
     });
     return spent;
@@ -135,20 +164,14 @@ export default function App() {
     };
     updateData({
       ...data,
-      expenses: {
-        ...data.expenses,
-        [catKey]: [...data.expenses[catKey], newItem]
-      }
+      expenses: { ...data.expenses, [catKey]: [...data.expenses[catKey], newItem] },
     });
   };
 
   const handleRemoveExpense = (catKey: CategoryKey, id: string) => {
     updateData({
       ...data,
-      expenses: {
-        ...data.expenses,
-        [catKey]: data.expenses[catKey].filter(item => item.id !== id)
-      }
+      expenses: { ...data.expenses, [catKey]: data.expenses[catKey].filter((item) => item.id !== id) },
     });
   };
 
@@ -157,41 +180,101 @@ export default function App() {
       ...data,
       expenses: {
         ...data.expenses,
-        [catKey]: data.expenses[catKey].map(item => item.id === id ? { ...item, [field]: val } : item)
-      }
+        [catKey]: data.expenses[catKey].map((item) => (item.id === id ? { ...item, [field]: val } : item)),
+      },
     });
   };
 
   const handleUpdatePercentage = (catKey: CategoryKey, val: string) => {
     const num = parseFloat(val) || 0;
-    updateData({
-      ...data,
-      percentages: {
-        ...data.percentages,
-        [catKey]: num
-      }
-    });
+    updateData({ ...data, percentages: { ...data.percentages, [catKey]: num } });
   };
 
+  const readOnly = isViewing;
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 min-h-screen flex flex-col gap-8 text-main-text">
-      
+    <div ref={captureRef} className="max-w-6xl mx-auto px-4 py-8 md:py-12 min-h-screen flex flex-col gap-8 text-main-text">
+
+      {/* 檢視模式 Banner */}
+      {isViewing && !isExporting && (
+        <div className="paper-card px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap bg-white/70">
+          <div className="flex items-center gap-2 font-round text-xs">
+            <Eye size={14} className="opacity-70" />
+            <span>
+              正在查看 <span className="font-bold">「{viewingPlan?.name}」</span>
+              <span className="opacity-60 ml-1">（{viewingPlan ? formatSavedDate(viewingPlan.savedAt) : ''} 儲存）</span>
+              <span className="opacity-60 ml-2">· 唯讀</span>
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleLoadPlanAsDraft(viewingPlan!.id)}
+              className="font-round text-xs font-bold px-3 py-1.5 rounded bg-main-text/10 hover:bg-main-text/20 transition-colors"
+            >
+              以此為基礎編輯
+            </button>
+            <button
+              onClick={() => setViewingPlanId(null)}
+              className="font-round text-xs px-3 py-1.5 rounded border border-dashed border-main-text/40 hover:bg-main-text/5 transition-colors flex items-center gap-1"
+            >
+              <ArrowLeft size={11} /> 回到編輯
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 標題 */}
       <header className="flex flex-col items-center gap-2 relative">
+        {/* 功能按鈕列 — mobile: 上方獨立一列, md+: 絕對右上角 */}
+        {!isExporting && (
+          <div
+            className="w-full flex justify-end flex-wrap items-center gap-1.5 md:w-auto md:absolute md:right-0 md:top-2"
+            data-export-hide="true"
+          >
+            <button
+              onClick={handleExport}
+              className="header-btn"
+              title="匯出成 JPG 圖片"
+            >
+              <ImageIcon size={10} />
+              <span className="hidden sm:inline">匯出圖片</span>
+            </button>
+            <button
+              onClick={() => setSaveModalOpen(true)}
+              className="header-btn"
+              title="儲存目前規劃"
+            >
+              <Save size={10} />
+              <span className="hidden sm:inline">儲存</span>
+            </button>
+            <button
+              onClick={() => setRecordsOpen(true)}
+              className="header-btn"
+              title="查看已儲存的紀錄"
+            >
+              <BookOpen size={10} />
+              <span className="hidden sm:inline">紀錄</span>
+              {storage.savedPlans.length > 0 && (
+                <span className="header-btn-badge ml-0.5">
+                  {storage.savedPlans.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="header-btn"
+              title="重設所有內容"
+            >
+              <RotateCcw size={10} />
+              <span className="hidden sm:inline">重設</span>
+            </button>
+          </div>
+        )}
+
         <h1 className="font-handwrite text-4xl md:text-5xl font-bold text-center" style={{ color: '#6B4423' }}>
           月預算分配計算機
         </h1>
         <p className="font-round text-sm opacity-60 mt-1">我的收入水庫</p>
-        
-        {/* 重設按鈕 */}
-        <button
-          onClick={() => setShowResetConfirm(true)}
-          className="absolute right-0 top-2 flex items-center gap-1.5 text-xs font-round opacity-50 hover:opacity-100 transition-opacity px-3 py-1.5 rounded border border-dashed border-main-text/30"
-          title="重設所有內容"
-        >
-          <RotateCcw size={12} />
-          <span>重設</span>
-        </button>
       </header>
 
       {/* 薪水水庫 + 百分比 */}
@@ -237,6 +320,7 @@ export default function App() {
               className="income-input"
               placeholder="例如 35000 或 32000+3000"
               value={data.incomeFormula}
+              readOnly={readOnly}
               onChange={(e) => updateData({ ...data, incomeFormula: e.target.value })}
             />
           </div>
@@ -253,23 +337,24 @@ export default function App() {
 
         {/* 四大分類百分比 */}
         <div className="flex-[2] grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(Object.keys(CATEGORIES) as CategoryKey[]).map(key => {
+          {(Object.keys(CATEGORIES) as CategoryKey[]).map((key) => {
             const cat = CATEGORIES[key];
             return (
-              <div 
-                key={key} 
+              <div
+                key={key}
                 className="paper-card p-3 flex flex-col justify-between min-h-[100px]"
               >
-                <span 
+                <span
                   className="font-round text-xs font-bold px-2 py-0.5 rounded-full self-start"
                   style={{ backgroundColor: cat.tagBg, color: cat.tagText }}
                 >
                   {cat.name}
                 </span>
                 <div className="flex items-baseline gap-1 my-1">
-                  <input 
+                  <input
                     type="number"
                     value={data.percentages[key]}
+                    readOnly={readOnly}
                     onChange={(e) => handleUpdatePercentage(key, e.target.value)}
                     className="w-full big-number text-2xl bg-transparent outline-none border-b border-dashed border-main-text/20 focus:border-main-text/50"
                   />
@@ -293,7 +378,7 @@ export default function App() {
 
       {/* 四大支出分類 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {(Object.keys(CATEGORIES) as CategoryKey[]).map(key => {
+        {(Object.keys(CATEGORIES) as CategoryKey[]).map((key) => {
           const cat = CATEGORIES[key];
           const remaining = categoryBudgets[key] - categorySpent[key];
           const isOver = remaining < 0;
@@ -301,7 +386,7 @@ export default function App() {
           return (
             <div key={key} className="paper-card overflow-hidden flex flex-col">
               {/* 紙膠帶造型 Header */}
-              <div 
+              <div
                 className="tape-header px-8 py-3 flex justify-between items-center"
                 style={{ backgroundColor: cat.headerBg, color: cat.headerText }}
               >
@@ -333,6 +418,7 @@ export default function App() {
                     >
                       <input
                         value={item.name}
+                        readOnly={readOnly}
                         onChange={(e) => handleUpdateExpense(key, item.id, 'name', e.target.value)}
                         className="w-24 bg-transparent border-none p-0 focus:outline-none text-[12px] font-medium"
                         style={{ color: cat.tagText }}
@@ -343,12 +429,14 @@ export default function App() {
                       value={item.formula}
                       onChange={(val) => handleUpdateExpense(key, item.id, 'formula', val)}
                       placeholder={item.placeholder ?? '預抓費用'}
+                      readOnly={readOnly}
                     />
 
-                    {item.isCustom ? (
+                    {item.isCustom && !readOnly ? (
                       <button
                         onClick={() => handleRemoveExpense(key, item.id)}
                         className="text-main-text/30 hover:text-overspent transition-colors p-1"
+                        data-export-hide="true"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -358,21 +446,23 @@ export default function App() {
                   </div>
                 ))}
 
-                <div className="flex justify-center pt-3">
-                  <button 
-                    onClick={() => handleAddExpense(key)}
-                    className="text-[11px] font-round opacity-50 border border-dashed border-main-text/40 px-5 py-1.5 rounded hover:opacity-100 hover:bg-white/40 transition-all flex items-center gap-1 font-medium"
-                  >
-                    <Plus size={11} /> 新增自訂項目
-                  </button>
-                </div>
+                {!readOnly && !isExporting && (
+                  <div className="flex justify-center pt-3" data-export-hide="true">
+                    <button
+                      onClick={() => handleAddExpense(key)}
+                      className="text-[11px] font-round opacity-50 border border-dashed border-main-text/40 px-5 py-1.5 rounded hover:opacity-100 hover:bg-white/40 transition-all flex items-center gap-1 font-medium"
+                    >
+                      <Plus size={11} /> 新增自訂項目
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Footer 小計 */}
               <div className="px-5 py-2.5 border-t border-dashed border-main-text/15 flex justify-between items-center font-round text-xs">
                 <span className="opacity-50 font-medium">小計</span>
                 <span className={`font-bold ${isOver ? 'text-overspent' : 'text-remaining'}`}>
-                  {formatCurrency(categorySpent[key])} 
+                  {formatCurrency(categorySpent[key])}
                   <span className="opacity-80 font-medium ml-1">
                     ({isOver ? `超支 ${formatCurrency(Math.abs(remaining))}` : `剩餘 ${formatCurrency(remaining)}`})
                   </span>
@@ -388,7 +478,7 @@ export default function App() {
         {/* 左側便條紙說明 */}
         <div className="max-w-md w-full">
           <div className="sticky-note overflow-hidden">
-            <button 
+            <button
               onClick={() => setIsNoteOpen(!isNoteOpen)}
               className="w-full px-4 py-2.5 flex justify-between items-center font-round font-bold text-xs opacity-70 hover:opacity-100 transition-opacity"
             >
@@ -397,7 +487,7 @@ export default function App() {
             </button>
             <AnimatePresence>
               {isNoteOpen && (
-                <motion.div 
+                <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
@@ -447,7 +537,7 @@ export default function App() {
             >
               <h3 className="font-handwrite text-lg font-bold mb-2">確定要重設嗎？</h3>
               <p className="font-round text-sm opacity-75 mb-5">
-                所有填入的金額與項目會被清除，恢復成初始狀態。
+                目前編輯中的內容會被清除，恢復成初始狀態。已儲存的紀錄不會被刪除。
               </p>
               <div className="flex gap-3 justify-end">
                 <button
@@ -467,6 +557,33 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 紀錄側邊欄 */}
+      <RecordsPanel
+        open={recordsOpen}
+        onClose={() => setRecordsOpen(false)}
+        savedPlans={storage.savedPlans}
+        viewingPlanId={viewingPlanId}
+        onViewDraft={() => {
+          setViewingPlanId(null);
+          setRecordsOpen(false);
+        }}
+        onViewPlan={(id) => {
+          setViewingPlanId(id);
+          setRecordsOpen(false);
+        }}
+        onRenamePlan={handleRenamePlan}
+        onDeletePlan={handleDeletePlan}
+        onLoadPlanAsDraft={handleLoadPlanAsDraft}
+      />
+
+      {/* 儲存 Modal */}
+      <SavePlanModal
+        open={saveModalOpen}
+        defaultName={defaultPlanName()}
+        onCancel={() => setSaveModalOpen(false)}
+        onConfirm={handleSavePlan}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ interface BudgetInputProps {
   placeholder?: string;
   className?: string;
   resultClassName?: string;
+  readOnly?: boolean;
 }
 
 export const BudgetInput: React.FC<BudgetInputProps> = ({
@@ -15,6 +16,7 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({
   placeholder = '預抓費用',
   className = '',
   resultClassName = '',
+  readOnly = false,
 }) => {
   const result = safelyEvaluate(value);
 
@@ -24,6 +26,7 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
         placeholder={placeholder}
         className={`formula-input ${className}`}
       />
