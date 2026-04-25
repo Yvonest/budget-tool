@@ -73,6 +73,7 @@ export const PRESET_ITEMS: Record<CategoryKey, { name: string; tooltip?: string;
     { name: '家庭照顧(紅包/日常)', placeholder: '預抓費用' },
     { name: '保險', placeholder: '固定費用' },
     { name: '稅金', placeholder: '固定費用' },
+    { name: '緊急預備金', placeholder: '固定費用' },
   ],
   SELF: [
     { name: '興趣支出(技能/成長)', placeholder: '預抓費用' },
@@ -81,7 +82,6 @@ export const PRESET_ITEMS: Record<CategoryKey, { name: string; tooltip?: string;
   ],
   DREAM: [
     { name: '投資理財', placeholder: '固定費用' },
-    { name: '緊急預備金', placeholder: '固定費用' },
     { name: '旅遊', placeholder: '固定費用' },
   ],
 };
